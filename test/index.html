@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOJ Core API 测试</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #555;
+            font-size: 18px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            min-height: 60px;
+            resize: vertical;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #1976D2;
+        }
+        button.danger {
+            background: #f44336;
+        }
+        button.danger:hover {
+            background: #da190b;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background: #e8f5e9;
+            border: 1px solid #4CAF50;
+            color: #2e7d32;
+        }
+        .result.error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+        .result.info {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            color: #1565c0;
+        }
+        .token-info {
+            background: #fff3e0;
+            border: 1px solid #ff9800;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        .token-info label {
+            font-size: 11px;
+            color: #e65100;
+            text-transform: uppercase;
+        }
+        .token-value {
+            font-family: monospace;
+            word-break: break-all;
+            color: #333;
+        }
+        .server-config {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>SOJ Core API 测试工具</h1>
+
+    <div class="server-config">
+        <label>API 服务器地址:</label>
+        <input type="text" id="serverUrl" value="http://localhost:8080" placeholder="http://localhost:8080">
+    </div>
+
+    <!-- Token 状态显示 -->
+    <div class="card" id="tokenStatusCard">
+        <h2>当前登录状态</h2>
+        <div id="tokenStatus" class="token-info">
+            <div><label>状态:</label> <span id="loginState">未登录</span></div>
+            <div class="hidden" id="accessTokenDiv">
+                <label>Access Token:</label>
+                <div class="token-value" id="accessToken"></div>
+            </div>
+            <div class="hidden" id="refreshTokenDiv">
+                <label>Refresh Token:</label>
+                <div class="token-value" id="refreshToken"></div>
+            </div>
+            <div class="hidden" id="uidDiv">
+                <label>UID:</label>
+                <div class="token-value" id="uid"></div>
+            </div>
+        </div>
+        <button onclick="clearTokens()" class="danger">清除所有 Token</button>
+    </div>
+
+    <div class="container">
+        <!-- 注册 -->
+        <div class="card">
+            <h2>1. 用户注册</h2>
+            <div class="form-group">
+                <label>用户名 (3-15位, 小写字母/数字/下划线):</label>
+                <input type="text" id="regUsername" placeholder="test_user" value="testuser">
+            </div>
+            <div class="form-group">
+                <label>密码 (明文, 将自动计算SHA256):</label>
+                <input type="password" id="regPassword" placeholder="输入密码" value="testpass123">
+            </div>
+            <div class="form-group">
+                <label>邮箱 (可选):</label>
+                <input type="email" id="regEmail" placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label>昵称 (可选):</label>
+                <input type="text" id="regNickname" placeholder="Test User">
+            </div>
+            <button onclick="generateSaltAndRegister()">生成 Salt 并注册</button>
+            <button onclick="register()" class="secondary">直接注册</button>
+            <div id="regResult" class="result hidden"></div>
+        </div>
+
+        <!-- Pre-login -->
+        <div class="card">
+            <h2>2. Pre-Login (获取 Salt)</h2>
+            <div class="form-group">
+                <label>用户名:</label>
+                <input type="text" id="preloginUsername" placeholder="testuser">
+            </div>
+            <button onclick="preLogin()">获取 Salt</button>
+            <div id="preloginResult" class="result hidden"></div>
+        </div>
+
+        <!-- 登录 -->
+        <div class="card">
+            <h2>3. 登录</h2>
+            <div class="form-group">
+                <label>用户名:</label>
+                <input type="text" id="loginUsername" placeholder="testuser">
+            </div>
+            <div class="form-group">
+                <label>密码 (明文, 将自动处理):</label>
+                <input type="password" id="loginPassword" placeholder="输入密码" value="testpass123">
+            </div>
+            <div class="form-group">
+                <label>或输入已存储的密码 (SHA256):</label>
+                <input type="text" id="loginStoredPassword" placeholder="64位十六进制">
+            </div>
+            <button onclick="doPreLoginAndLogin()">自动 Pre-Login + 登录</button>
+            <button onclick="login()" class="secondary">直接登录</button>
+            <div id="loginResult" class="result hidden"></div>
+        </div>
+
+        <!-- 刷新 Token -->
+        <div class="card">
+            <h2>4. 刷新 Token</h2>
+            <div class="form-group">
+                <label>Refresh Token (或留空使用当前):</label>
+                <textarea id="refreshTokenInput" placeholder="输入 refresh token"></textarea>
+            </div>
+            <button onclick="refreshToken()" id="refreshBtn" disabled>刷新 Token</button>
+            <div id="refreshResult" class="result hidden"></div>
+            <div class="token-info" style="margin-top: 10px; font-size: 12px;">
+                <label>说明:</label>
+                <div>刷新后会生成新的 Access Token，旧 Access Token 将被加入黑名单</div>
+            </div>
+        </div>
+
+        <!-- 访问受保护资源 -->
+        <div class="card">
+            <h2>5. 访问受保护资源</h2>
+            <div class="form-group">
+                <label>API 路径:</label>
+                <input type="text" id="protectedPath" value="/admin/profile" placeholder="/admin/profile">
+            </div>
+            <button onclick="accessProtected()" id="protectedBtn" disabled>访问</button>
+            <div id="protectedResult" class="result hidden"></div>
+        </div>
+
+        <!-- 登出 -->
+        <div class="card">
+            <h2>6. 登出</h2>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="logoutAllDevices">
+                <label for="logoutAllDevices">从所有设备登出</label>
+            </div>
+            <div class="form-group">
+                <label>或指定 Refresh Token (登出特定设备):</label>
+                <textarea id="logoutTokenInput" placeholder="输入 refresh token 登出特定设备"></textarea>
+            </div>
+            <button onclick="logout()" id="logoutBtn" disabled>登出</button>
+            <div id="logoutResult" class="result hidden"></div>
+            <div class="token-info" style="margin-top: 10px; font-size: 12px;">
+                <label>说明:</label>
+                <div>默认登出当前设备 (将当前 Access Token 和 Refresh Token 加入黑名单)</div>
+            </div>
+        </div>
+
+        <!-- SHA256 工具 -->
+        <div class="card">
+            <h2>SHA256 计算工具</h2>
+            <div class="form-group">
+                <label>输入:</label>
+                <textarea id="shaInput" placeholder="输入要计算的内容"></textarea>
+            </div>
+            <button onclick="calculateSHA256()">计算 SHA256</button>
+            <div class="form-group">
+                <label>结果:</label>
+                <input type="text" id="shaResult" readonly placeholder="SHA256 结果">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 存储的 Token
+        let tokens = {
+            accessToken: localStorage.getItem('accessToken') || '',
+            refreshToken: localStorage.getItem('refreshToken') || '',
+            uid: localStorage.getItem('uid') || '',
+            username: localStorage.getItem('username') || ''
+        };
+
+        // 存储的用户数据（用于登录）
+        let userData = {
+            salt: localStorage.getItem('userSalt') || '',
+            storedPassword: localStorage.getItem('storedPassword') || ''
+        };
+
+        // 页面加载时更新 UI
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTokenUI();
+            if (tokens.username) {
+                document.getElementById('loginUsername').value = tokens.username;
+                document.getElementById('preloginUsername').value = tokens.username;
+            }
+            if (userData.storedPassword) {
+                document.getElementById('loginStoredPassword').value = userData.storedPassword;
+            }
+        });
+
+        function getServerUrl() {
+            return document.getElementById('serverUrl').value.replace(/\/$/, '');
+        }
+
+        function updateTokenUI() {
+            const isLoggedIn = !!tokens.accessToken;
+            document.getElementById('loginState').textContent = isLoggedIn ? '已登录' : '未登录';
+            document.getElementById('loginState').style.color = isLoggedIn ? '#4CAF50' : '#f44336';
+
+            if (tokens.accessToken) {
+                document.getElementById('accessTokenDiv').classList.remove('hidden');
+                document.getElementById('accessToken').textContent = tokens.accessToken.substring(0, 50) + '...';
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('protectedBtn').disabled = false;
+                document.getElementById('logoutBtn').disabled = false;
+            } else {
+                document.getElementById('accessTokenDiv').classList.add('hidden');
+                document.getElementById('refreshBtn').disabled = true;
+                document.getElementById('protectedBtn').disabled = true;
+                document.getElementById('logoutBtn').disabled = true;
+            }
+
+            if (tokens.refreshToken) {
+                document.getElementById('refreshTokenDiv').classList.remove('hidden');
+                document.getElementById('refreshToken').textContent = tokens.refreshToken.substring(0, 50) + '...';
+            } else {
+                document.getElementById('refreshTokenDiv').classList.add('hidden');
+            }
+
+            if (tokens.uid) {
+                document.getElementById('uidDiv').classList.remove('hidden');
+                document.getElementById('uid').textContent = tokens.uid;
+            } else {
+                document.getElementById('uidDiv').classList.add('hidden');
+            }
+        }
+
+        function saveTokens() {
+            localStorage.setItem('accessToken', tokens.accessToken);
+            localStorage.setItem('refreshToken', tokens.refreshToken);
+            localStorage.setItem('uid', tokens.uid);
+            localStorage.setItem('username', tokens.username);
+            updateTokenUI();
+        }
+
+        function clearTokens() {
+            tokens = { accessToken: '', refreshToken: '', uid: '', username: '' };
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('uid');
+            localStorage.removeItem('username');
+            updateTokenUI();
+            showResult('logoutResult', '已清除所有 Token', 'info');
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.textContent = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
+            el.className = 'result ' + type;
+            el.classList.remove('hidden');
+        }
+
+        // 测试 SHA256 实现
+        async function testSha256() {
+            const testInput = "abc";
+            const expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+            const result = await sha256(testInput);
+            console.log('[SHA256 Test] Input:', testInput);
+            console.log('[SHA256 Test] Expected:', expected);
+            console.log('[SHA256 Test] Got:', result);
+            console.log('[SHA256 Test] Match:', result === expected);
+            return result === expected;
+        }
+
+        // SHA256 计算 - 优先使用 Web Crypto API，不支持时回退到纯 JS 实现
+        async function sha256(message) {
+            // 检查是否支持 Web Crypto API (需要 HTTPS 或 localhost)
+            if (typeof crypto !== 'undefined' && crypto.subtle) {
+                console.log('[SHA256] Using Web Crypto API');
+                const msgBuffer = new TextEncoder().encode(message);
+                console.log('[SHA256] Input:', message);
+                console.log('[SHA256] Bytes:', Array.from(msgBuffer).map(b => b.toString(16).padStart(2, '0')).join(''));
+                const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const result = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                console.log('[SHA256] Result:', result);
+                return result;
+            }
+
+            // 回退：纯 JavaScript SHA256 实现
+            console.log('[SHA256] Using pure JS implementation');
+            return sha256Js(message);
+        }
+
+        // 纯 JavaScript SHA256 实现 (用于非安全上下文如 file:// 协议)
+        // 使用经过验证的标准实现
+        function sha256Js(message) {
+            // 将字符串转换为UTF-8字节数组
+            function utf8Encode(str) {
+                const bytes = [];
+                for (let i = 0; i < str.length; i++) {
+                    let code = str.charCodeAt(i);
+                    if (code < 0x80) {
+                        bytes.push(code);
+                    } else if (code < 0x800) {
+                        bytes.push(0xc0 | (code >>> 6));
+                        bytes.push(0x80 | (code & 0x3f));
+                    } else if (code < 0xd800 || code >= 0xe000) {
+                        bytes.push(0xe0 | (code >>> 12));
+                        bytes.push(0x80 | ((code >>> 6) & 0x3f));
+                        bytes.push(0x80 | (code & 0x3f));
+                    } else { // surrogate pair
+                        i++;
+                        code = ((code & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff);
+                        bytes.push(0xf0 | (code >>> 18));
+                        bytes.push(0x80 | ((code >>> 12) & 0x3f));
+                        bytes.push(0x80 | ((code >>> 6) & 0x3f));
+                        bytes.push(0x80 | (code & 0x3f));
+                    }
+                }
+                return bytes;
+            }
+
+            // 右旋转: 将32位整数 x 向右旋转 n 位
+            function rotr(n, x) {
+                return ((x >>> n) | (x << (32 - n))) >>> 0;
+            }
+
+            // SHA256 常量 K
+            const K = [
+                0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+            ];
+
+            // 编码消息为UTF-8字节
+            const msgBytes = utf8Encode(message);
+            const originalLengthBits = msgBytes.length * 8;
+
+            // 填充: 先加 0x80，然后加零直到长度 ≡ 448 (mod 512)
+            msgBytes.push(0x80);
+            while ((msgBytes.length * 8) % 512 !== 448) {
+                msgBytes.push(0);
+            }
+
+            // 附加原始长度（64位大端整数）- 只使用低32位（支持消息长度 < 2^32）
+            msgBytes.push(0, 0, 0, 0); // 高位32位
+            msgBytes.push((originalLengthBits >>> 24) & 0xff,
+                          (originalLengthBits >>> 16) & 0xff,
+                          (originalLengthBits >>> 8) & 0xff,
+                          originalLengthBits & 0xff);
+
+            // 初始化哈希值
+            let H = new Uint32Array([
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+            ]);
+
+            // 处理每个 512 位 (64 字节) 块
+            for (let i = 0; i < msgBytes.length; i += 64) {
+                const W = new Uint32Array(64);
+
+                // 将块的前16个字转换为W[0..15]（大端）
+                for (let t = 0; t < 16; t++) {
+                    W[t] = ((msgBytes[i + t * 4] << 24) |
+                            (msgBytes[i + t * 4 + 1] << 16) |
+                            (msgBytes[i + t * 4 + 2] << 8) |
+                            msgBytes[i + t * 4 + 3]) >>> 0;
+                }
+
+                // 扩展消息调度数组 W[16..63]
+                for (let t = 16; t < 64; t++) {
+                    const s0 = rotr(7, W[t - 15]) ^ rotr(18, W[t - 15]) ^ (W[t - 15] >>> 3);
+                    const s1 = rotr(17, W[t - 2]) ^ rotr(19, W[t - 2]) ^ (W[t - 2] >>> 10);
+                    W[t] = (W[t - 16] + s0 + W[t - 7] + s1) >>> 0;
+                }
+
+                // 初始化工作变量（使用 Uint32Array 确保无符号32位）
+                let a = H[0], b = H[1], c = H[2], d = H[3];
+                let e = H[4], f = H[5], g = H[6], h = H[7];
+
+                // 主循环
+                for (let t = 0; t < 64; t++) {
+                    const S1 = rotr(6, e) ^ rotr(11, e) ^ rotr(25, e);
+                    const ch = (e & f) ^ (~e & g);
+                    const temp1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
+                    const S0 = rotr(2, a) ^ rotr(13, a) ^ rotr(22, a);
+                    const maj = (a & b) ^ (a & c) ^ (b & c);
+                    const temp2 = (S0 + maj) >>> 0;
+
+                    h = g;
+                    g = f;
+                    f = e;
+                    e = (d + temp1) >>> 0;
+                    d = c;
+                    c = b;
+                    b = a;
+                    a = (temp1 + temp2) >>> 0;
+                }
+
+                // 添加到哈希值
+                H[0] = (H[0] + a) >>> 0;
+                H[1] = (H[1] + b) >>> 0;
+                H[2] = (H[2] + c) >>> 0;
+                H[3] = (H[3] + d) >>> 0;
+                H[4] = (H[4] + e) >>> 0;
+                H[5] = (H[5] + f) >>> 0;
+                H[6] = (H[6] + g) >>> 0;
+                H[7] = (H[7] + h) >>> 0;
+            }
+
+            // 转换为十六进制字符串
+            return Array.from(H).map(h => h.toString(16).padStart(8, '0')).join('');
+        }
+
+        function calculateSHA256() {
+            const input = document.getElementById('shaInput').value;
+            sha256(input).then(hash => {
+                document.getElementById('shaResult').value = hash;
+            });
+        }
+
+        // 生成随机 Salt
+        function generateRandomSalt() {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@#$*_1234567890';
+            let salt = '';
+            for (let i = 0; i < 16; i++) {
+                salt += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return salt;
+        }
+
+        // 注册
+        async function generateSaltAndRegister() {
+            const username = document.getElementById('regUsername').value;
+            const salt = generateRandomSalt();
+            const password = document.getElementById('regPassword').value;
+
+            if (!username) {
+                showResult('regResult', '请输入用户名', 'error');
+                return;
+            }
+
+            if (!password) {
+                showResult('regResult', '请输入密码', 'error');
+                return;
+            }
+
+            const storedPassword = await sha256(password + salt);
+
+            // 保存用户数据
+            userData.salt = salt;
+            userData.storedPassword = storedPassword;
+            localStorage.setItem('userSalt', salt);
+            localStorage.setItem('storedPassword', storedPassword);
+            document.getElementById('loginStoredPassword').value = storedPassword;
+
+            showResult('regResult', `生成的 Salt: ${salt}\n存储的密码 (SHA256): ${storedPassword}`, 'info');
+
+            // 执行注册 - 直接调用带参数的注册逻辑
+            await doRegister(username, storedPassword, salt);
+        }
+
+        async function register() {
+            const username = document.getElementById('regUsername').value;
+
+            if (!username) {
+                showResult('regResult', '请输入用户名', 'error');
+                return;
+            }
+
+            let storedPassword = userData.storedPassword;
+            let salt = userData.salt;
+
+            if (!storedPassword) {
+                const password = document.getElementById('regPassword').value;
+                if (!password) {
+                    showResult('regResult', '请生成 Salt 或输入密码', 'error');
+                    return;
+                }
+                if (!salt) salt = generateRandomSalt();
+                storedPassword = await sha256(password + salt);
+                userData.storedPassword = storedPassword;
+                userData.salt = salt;
+            }
+
+            await doRegister(username, storedPassword, salt);
+        }
+
+        async function doRegister(username, storedPassword, salt) {
+            // 使用 URLSearchParams 发送 form-data 格式
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', storedPassword);
+            formData.append('salt', salt);
+
+            const email = document.getElementById('regEmail').value;
+            const nickname = document.getElementById('regNickname').value;
+            if (email) formData.append('email', email);
+            if (nickname) formData.append('nickname', nickname);
+
+            console.log('Register data:', { username, password: '[REDACTED]', salt, email, nickname });
+
+            try {
+                const response = await fetch(`${getServerUrl()}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                const result = await response.json();
+                showResult('regResult', result, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    tokens.username = username;
+                    localStorage.setItem('username', username);
+                    document.getElementById('loginUsername').value = username;
+                    document.getElementById('preloginUsername').value = username;
+                }
+            } catch (err) {
+                showResult('regResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // Pre-login
+        async function preLogin() {
+            const username = document.getElementById('preloginUsername').value;
+
+            try {
+                const response = await fetch(`${getServerUrl()}/prelogin/${username}`);
+                const result = await response.json();
+                showResult('preloginResult', result, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    // 保存数据供登录使用
+                    localStorage.setItem('preloginSalt', result.loginSalt);
+                    localStorage.setItem('userSalt', result.salt);
+                    userData.salt = result.salt;
+                }
+            } catch (err) {
+                showResult('preloginResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // 登录流程
+        async function doPreLoginAndLogin() {
+            const username = document.getElementById('loginUsername').value;
+
+            // 先执行 prelogin
+            try {
+                const preloginRes = await fetch(`${getServerUrl()}/prelogin/${username}`);
+                const preloginData = await preloginRes.json();
+
+                if (!preloginRes.ok) {
+                    showResult('loginResult', preloginData, 'error');
+                    return;
+                }
+
+                // 计算密码
+                const password = document.getElementById('loginPassword').value;
+                let storedPassword = document.getElementById('loginStoredPassword').value;
+
+                console.log('=== Login Debug ===');
+                console.log('Prelogin response:', preloginData);
+                console.log('Input password:', password);
+                console.log('Stored password from input:', storedPassword);
+
+                if (!storedPassword && password) {
+                    // 从明文计算存储密码
+                    const storedPasswordInput = password + preloginData.salt;
+                    console.log('Stored password input (password + salt):', storedPasswordInput);
+                    console.log('Stored password input bytes:', Array.from(new TextEncoder().encode(storedPasswordInput)).map(b => b.toString(16).padStart(2, '0')).join(''));
+                    storedPassword = await sha256(storedPasswordInput);
+                    console.log('Calculated storedPassword:', storedPassword);
+                }
+
+                // 计算登录密码 (storedPassword + loginSalt)
+                const loginPasswordInput = storedPassword + preloginData.loginSalt;
+                console.log('Login password input (storedPassword + loginSalt):', loginPasswordInput);
+                console.log('Login password input bytes:', Array.from(new TextEncoder().encode(loginPasswordInput)).map(b => b.toString(16).padStart(2, '0')).join(''));
+                const loginPassword = await sha256(loginPasswordInput);
+                console.log('Final loginPassword (SHA256):', loginPassword);
+                console.log('===================');
+
+                // 先测试 SHA256
+                await testSha256();
+
+                // 显示调试信息
+                showResult('loginResult',
+                    `Debug Info:\n` +
+                    `Salt: ${preloginData.salt}\n` +
+                    `LoginSalt: ${preloginData.loginSalt}\n` +
+                    `StoredPassword: ${storedPassword}\n` +
+                    `LoginPassword: ${loginPassword}\n\n` +
+                    `Sending login request...`, 'info');
+
+                // 执行登录
+                await doLogin(username, loginPassword, storedPassword);
+            } catch (err) {
+                showResult('loginResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const storedPassword = document.getElementById('loginStoredPassword').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!storedPassword) {
+                showResult('loginResult', '请先输入存储的密码 (SHA256) 或使用"自动 Pre-Login + 登录"', 'error');
+                return;
+            }
+
+            // 如果有输入明文密码，需要 loginSalt，但这里没有，所以直接使用存储的密码
+            // 这只能在特定情况下工作
+            await doLogin(username, password || storedPassword, storedPassword);
+        }
+
+        async function doLogin(username, loginPassword, storedPassword) {
+            try {
+                const response = await fetch(`${getServerUrl()}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        password: loginPassword
+                    })
+                });
+                const result = await response.json();
+                showResult('loginResult', result, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    tokens.accessToken = result.access_token;
+                    tokens.refreshToken = result.refresh_token;
+                    tokens.uid = result.uid;
+                    tokens.username = result.username;
+                    saveTokens();
+
+                    // 保存存储的密码
+                    if (storedPassword) {
+                        userData.storedPassword = storedPassword;
+                        localStorage.setItem('storedPassword', storedPassword);
+                    }
+                }
+            } catch (err) {
+                showResult('loginResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // 刷新 Token
+        async function refreshToken() {
+            const refreshTokenValue = document.getElementById('refreshTokenInput').value || tokens.refreshToken;
+
+            if (!refreshTokenValue) {
+                showResult('refreshResult', '没有可用的 Refresh Token', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${getServerUrl()}/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshTokenValue })
+                });
+                const result = await response.json();
+                showResult('refreshResult', result, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    tokens.accessToken = result.access_token;
+                    tokens.refreshToken = result.refresh_token;
+                    saveTokens();
+                }
+            } catch (err) {
+                showResult('refreshResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // 访问受保护资源
+        async function accessProtected() {
+            const path = document.getElementById('protectedPath').value;
+
+            try {
+                const response = await fetch(`${getServerUrl()}${path}`, {
+                    headers: {
+                        'Authorization': `Bearer ${tokens.accessToken}`
+                    }
+                });
+                const result = await response.json();
+                showResult('protectedResult', result, response.ok ? 'success' : 'error');
+            } catch (err) {
+                showResult('protectedResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // 登出
+        async function logout() {
+            const allDevices = document.getElementById('logoutAllDevices').checked;
+            const logoutToken = document.getElementById('logoutTokenInput').value;
+
+            // 如果没有 access token，无法登出
+            if (!tokens.accessToken) {
+                showResult('logoutResult', '未登录，无法登出', 'error');
+                return;
+            }
+
+            const body = {};
+            if (allDevices) {
+                body.all_devices = true;
+            } else if (logoutToken) {
+                body.refresh_token = logoutToken;
+            } else {
+                // 默认：使用当前设备的 refresh token 登出
+                body.refresh_token = tokens.refreshToken;
+                body.access_token = tokens.accessToken;
+            }
+
+            try {
+                const response = await fetch(`${getServerUrl()}/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${tokens.accessToken}`
+                    },
+                    body: JSON.stringify(body)
+                });
+                const result = await response.json();
+                showResult('logoutResult', result, response.ok ? 'success' : 'error');
+
+                // 登出成功后清除本地 token
+                if (response.ok) {
+                    clearTokens();
+                }
+            } catch (err) {
+                showResult('logoutResult', '请求失败: ' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
